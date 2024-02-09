@@ -2,8 +2,9 @@ import math
 import re
 
 import aiomysql
+from aiomysql import DictCursor
 
-from fairy.config import db_settings
+from todoist.config import settings
 
 
 class BaseDB:
@@ -14,13 +15,14 @@ class BaseDB:
     async def connect(self):
         assert self._pool is None, 'database is already running'
         self._pool = await aiomysql.create_pool(
-            host=db_settings.DB_HOST,
-            port=db_settings.DB_PROT,
-            db=db_settings.DB_NAME,
-            user=db_settings.DB_USER,
-            password=db_settings.DB_PASS,
+            host=settings.db_host,
+            port=settings.db_port,
+            db=settings.db_name,
+            user=settings.db_user,
+            password=settings.db_pass,
             minsize=5,
-            maxsize=20
+            maxsize=20,
+            cursorclass=DictCursor
         )
 
     async def disconnect(self):
@@ -157,10 +159,10 @@ class Common:
             await cursor.execute(sql_str, where_values)
         else:
             await cursor.execute(sql_str)
-        (total,) = await cursor.fetchone()
+        total = await cursor.fetchone()
 
         # 计算分页信息
-        pages = math.ceil(total / per_page)
+        pages = math.ceil(total['total'] / per_page)
         next_num = page + 1 if page < pages else None
         has_next = page < pages
         prev_num = page - 1 if page > 1 else None
@@ -171,7 +173,7 @@ class Common:
             'page': page,
             'per_page': per_page,  # 每页显示的记录数
             'pages': pages,  # 总页数
-            'total': total,
+            'total': total['total'],
             'next_num': next_num,
             'has_next': has_next,
             'prev_num': prev_num,
